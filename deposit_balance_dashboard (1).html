@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deposit Ledger — Balance &amp; Portfolio Intelligence</title>
+<style>
+  :root{
+    --ink:#0D1B29;
+    --panel:#132840;
+    --panel-2:#1A3350;
+    --rule:#2B4B6B;
+    --parchment:#EDE7D8;
+    --muted:#8FA8C2;
+    --gold:#C99A3D;
+    --gold-soft:#E7C878;
+    --teal:#4FA89B;
+    --rust:#C1653B;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--ink); color:var(--parchment);
+    font-family:var(--sans);
+    background-image:
+      repeating-linear-gradient(180deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 34px);
+  }
+  a{color:var(--gold-soft);}
+  .wrap{max-width:1280px; margin:0 auto; padding:0 28px 80px;}
+
+  /* Header */
+  header.top{
+    padding:44px 28px 30px; border-bottom:1px solid var(--rule);
+    background:linear-gradient(180deg, #0F2036, #0D1B29 85%);
+  }
+  header.top .inner{max-width:1280px; margin:0 auto; display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap;}
+  .eyebrow{
+    font-family:var(--mono); letter-spacing:.18em; text-transform:uppercase;
+    font-size:11.5px; color:var(--gold-soft); margin:0 0 10px;
+  }
+  h1{
+    font-family:var(--serif); font-weight:400; font-size:40px; line-height:1.08;
+    margin:0 0 10px; color:var(--parchment);
+  }
+  h1 em{font-style:italic; color:var(--gold-soft);}
+  .sub{color:var(--muted); font-size:15px; max-width:640px; line-height:1.55; margin:0;}
+  .ledger-meta{
+    font-family:var(--mono); font-size:12.5px; color:var(--muted); text-align:right;
+    border-left:1px solid var(--rule); padding-left:20px; line-height:1.9;
+  }
+  .ledger-meta b{color:var(--parchment); font-weight:600;}
+
+  /* Filter bar */
+  .filterbar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding:16px 0 0;
+  }
+  .filterbar .label{font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin-right:4px;}
+  .pill{
+    font-family:var(--sans); font-size:13.5px; padding:7px 15px; border-radius:3px;
+    border:1px solid var(--rule); background:var(--panel); color:var(--parchment);
+    cursor:pointer; transition:all .15s ease;
+  }
+  .pill:hover{border-color:var(--gold);}
+  .pill.active{background:var(--gold); border-color:var(--gold); color:#1a1305; font-weight:600;}
+
+  /* Section headings */
+  section{margin-top:56px;}
+  .sec-head{display:flex; align-items:baseline; gap:14px; margin-bottom:6px;}
+  .sec-num{font-family:var(--mono); color:var(--gold); font-size:13px;}
+  h2{font-family:var(--serif); font-weight:400; font-size:24px; margin:0; color:var(--parchment);}
+  .sec-note{color:var(--muted); font-size:13.5px; margin:6px 0 22px; max-width:760px; line-height:1.5;}
+
+  /* KPI ledger strip */
+  .kpi-strip{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:0;
+    border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+    margin-top:26px;
+  }
+  .kpi{padding:20px 20px; border-left:1px solid var(--rule);}
+  .kpi:first-child{border-left:none;}
+  .kpi .k-label{font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:8px;}
+  .kpi .k-val{font-family:var(--mono); font-size:26px; color:var(--gold-soft); font-weight:600; font-variant-numeric:tabular-nums;}
+  .kpi .k-sub{font-size:11.5px; color:var(--muted); margin-top:4px;}
+
+  /* Panels */
+  .panel{
+    background:var(--panel); border:1px solid var(--rule); border-radius:4px; padding:22px 24px;
+  }
+  .grid2{display:grid; grid-template-columns:1.1fr 1fr; gap:20px;}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  @media (max-width:900px){
+    .grid2,.grid3{grid-template-columns:1fr;}
+    .kpi-strip{grid-template-columns:repeat(2,1fr);}
+    .kpi:nth-child(3){border-left:none;}
+  }
+
+  /* Stamp (signature element) */
+  .stamp-row{display:flex; gap:24px; align-items:center; flex-wrap:wrap;}
+  .stamp{
+    width:168px; height:168px; border-radius:50%; border:3px double var(--gold);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; transform:rotate(-6deg); flex:none;
+    box-shadow:0 0 0 1px rgba(201,154,61,.15) inset;
+  }
+  .stamp .st-eyebrow{font-family:var(--mono); font-size:9.5px; letter-spacing:.16em; color:var(--gold-soft); text-transform:uppercase;}
+  .stamp .st-date{font-family:var(--serif); font-size:22px; color:var(--parchment); margin:6px 0 4px;}
+  .stamp .st-amt{font-family:var(--mono); font-size:13px; color:var(--gold-soft);}
+  .stamp-detail{flex:1; min-width:260px;}
+  .stamp-detail .headline{font-size:15px; color:var(--parchment); line-height:1.6; margin-bottom:14px;}
+  .stamp-detail .headline b{color:var(--gold-soft); font-family:var(--mono);}
+  .taglist{display:flex; gap:8px; flex-wrap:wrap;}
+  .tag{font-family:var(--mono); font-size:11.5px; padding:5px 10px; border:1px solid var(--rule); border-radius:3px; color:var(--muted);}
+  .tag b{color:var(--parchment);}
+
+  /* Table (ledger style) */
+  table.ledger{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13px;}
+  table.ledger th{
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--muted); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--rule);
+  }
+  table.ledger td{padding:8px 10px; border-bottom:1px solid rgba(43,75,107,.45); color:var(--parchment);}
+  table.ledger tr:hover td{background:rgba(201,154,61,.06);}
+  table.ledger td.num{text-align:right; font-variant-numeric:tabular-nums;}
+  .rank{color:var(--gold-soft); font-weight:600;}
+
+  svg text{font-family:var(--mono); fill:var(--muted);}
+  .axis-line{stroke:var(--rule); stroke-width:1;}
+  .barlabel{font-family:var(--mono); font-size:11px; fill:var(--parchment);}
+
+  .legend{display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px;}
+  .legend .li{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); font-family:var(--mono);}
+  .legend .sw{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  .tooltip{
+    position:fixed; pointer-events:none; background:#0A1626; border:1px solid var(--gold);
+    padding:8px 11px; border-radius:3px; font-family:var(--mono); font-size:12px;
+    color:var(--parchment); z-index:50; display:none; line-height:1.6;
+  }
+
+  footer{
+    margin-top:70px; padding:26px 0; border-top:1px solid var(--rule);
+    color:var(--muted); font-size:12.5px; line-height:1.7;
+  }
+  footer b{color:var(--parchment);}
+
+  ::selection{background:var(--gold); color:#1a1305;}
+</style>
+</head>
+<body>
+
+<div class="tooltip" id="tooltip"></div>
+
+<header class="top">
+  <div class="inner">
+    <div>
+      <p class="eyebrow">Retail Banking · Deposit Book</p>
+      <h1>Balance &amp; Portfolio <em>Ledger</em></h1>
+      <p class="sub">Where deposit balance concentrates — by date, account type, and branch — across a 95,000-account book spanning 2005&ndash;2026.</p>
+    </div>
+    <div class="ledger-meta">
+      RECORDS&nbsp; <b id="m-records">—</b><br>
+      SPAN&nbsp; <b id="m-span">—</b><br>
+      BRANCHES&nbsp; <b id="m-branches">—</b><br>
+      FOLIO&nbsp; <b>001 / dep-ledger</b>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="filterbar">
+      <span class="label">Filter book by account type</span>
+      <button class="pill active" data-type="All">All types</button>
+      <button class="pill" data-type="Savings">Savings</button>
+      <button class="pill" data-type="Current">Current</button>
+      <button class="pill" data-type="Salary">Salary</button>
+      <button class="pill" data-type="Fixed Deposit">Fixed Deposit</button>
+      <button class="pill" data-type="NRI">NRI</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip" id="kpiStrip"></div>
+
+  <!-- SECTION 1: THE CORE QUESTION -->
+  <section id="sec-answer">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Which date holds the most balance?</h2></div>
+    <p class="sec-note">Ranking every account-opening date by the total balance booked that day. A single date can concentrate an outsized share when several large accounts land together.</p>
+    <div class="panel">
+      <div class="stamp-row">
+        <div class="stamp">
+          <div class="st-eyebrow">Peak Date</div>
+          <div class="st-date" id="stampDate">—</div>
+          <div class="st-amt" id="stampAmt">—</div>
+        </div>
+        <div class="stamp-detail">
+          <div class="headline" id="stampHeadline">—</div>
+          <div class="taglist" id="stampTags"></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:20px;">
+      <div class="panel">
+        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">Top 12 dates by total balance</div>
+        <table class="ledger" id="topDatesTable"></table>
+      </div>
+      <div class="panel">
+        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">Account-type mix on the peak date</div>
+        <div id="peakDonut"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2: REVENUE / GROWTH PERFORMANCE -->
+  <section id="sec-growth">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Balance growth over time</h2></div>
+    <p class="sec-note">Total deposit balance by account-open year, split by account type. This is the closest read on "revenue performance" this book supports: the deposit base the bank is carrying, and which product line is driving it.</p>
+    <div class="panel">
+      <div class="legend" id="growthLegend"></div>
+      <div id="growthChart"></div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: MARGIN DRIVERS -->
+  <section id="sec-mix">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Account-type mix — the margin drivers</h2></div>
+    <p class="sec-note">Share of total balance by product. Savings and Current carry the book; Fixed Deposit and NRI are smaller but typically the higher-yield, higher-margin lines for a bank.</p>
+    <div class="grid2">
+      <div class="panel"><div id="mixBars"></div></div>
+      <div class="panel">
+        <table class="ledger" id="mixTable"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: EXPENSE STRUCTURE / BALANCE AT RISK -->
+  <section id="sec-status">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Status structure — balance at risk</h2></div>
+    <p class="sec-note">No expense ledger exists in this data, so the nearest equivalent to "expense structure" is dormant and closed balance — deposits sitting outside active use, a drag on the book rather than a cost line.</p>
+    <div class="grid2">
+      <div class="panel"><div id="statusBars"></div></div>
+      <div class="panel">
+        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">Status split by account type</div>
+        <div id="statusStack"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5: BRANCH LEADERBOARD -->
+  <section id="sec-branch">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Branch leaderboard</h2></div>
+    <p class="sec-note">Top 20 branches by total balance carried. Filter above by account type to re-rank by that product's balance within the same 20 branches.</p>
+    <div class="panel"><div id="branchChart"></div></div>
+  </section>
+
+  <!-- SECTION 6: DISTRIBUTION -->
+  <section id="sec-dist">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Balance distribution</h2></div>
+    <p class="sec-note">Where account balances cluster by size band — total balance held in each tier, not account count.</p>
+    <div class="panel"><div id="distChart"></div></div>
+  </section>
+
+  <footer>
+    <div><b>Scope note.</b> Source file contains account_id, customer_id, branch_id, account_type, balance, open_date and status — a deposit account register, not a P&amp;L. Figures shown (balance, growth, mix) are read from this register; there is no revenue, cost, or margin field in the source, so "profitability" and "expense" panels above are explicitly reframed to the nearest honest equivalents (balance growth, dormant/closed balance) rather than invented.</div>
+    <div style="margin-top:8px;">Generated locally from <b>accounts.csv</b> — 95,000 rows, 150 branches, 2005–2026. All computation and rendering is inline; no external services are called.</div>
+  </footer>
+
+</div>
+
+<script>
+const DATA = {"kpi": {"total_balance": 4347317460.09, "total_accounts": 95000, "avg_balance": 45761.24, "active_pct": 84.95, "dormant_pct": 10.03, "closed_pct": 5.02, "num_branches": 150, "date_min": "2005-01-01", "date_max": "2026-05-31"}, "by_account_type": [{"account_type": "Savings", "total_balance": 2187486599.91, "count": 47557, "avg_balance": 45997.15, "share_pct": 50.32}, {"account_type": "Current", "total_balance": 870112686.29, "count": 19021, "avg_balance": 45744.84, "share_pct": 20.01}, {"account_type": "Salary", "total_balance": 644917483.55, "count": 14270, "avg_balance": 45193.94, "share_pct": 14.83}, {"account_type": "Fixed Deposit", "total_balance": 425789860.68, "count": 9458, "avg_balance": 45019.02, "share_pct": 9.79}, {"account_type": "NRI", "total_balance": 219010829.66, "count": 4694, "avg_balance": 46657.61, "share_pct": 5.04}], "type_status_matrix": {"types": ["Current", "Fixed Deposit", "NRI", "Salary", "Savings"], "statuses": ["Active", "Closed", "Dormant"], "data": [[736671497.84, 45719248.37, 87721940.08], [364860330.75, 18685827.13, 42243702.8], [185247562.65, 10622351.95, 23140915.06], [543991521.1, 32756281.92, 68169680.53], [1860315599.95, 110516922.48, 216654077.48]]}, "by_year": [{"year": 2005, "total_balance": 204553998.69, "count": 4426, "avg_balance": 46216.45}, {"year": 2006, "total_balance": 208038311.63, "count": 4488, "avg_balance": 46354.35}, {"year": 2007, "total_balance": 199065069.29, "count": 4412, "avg_balance": 45119.01}, {"year": 2008, "total_balance": 204194783.02, "count": 4478, "avg_balance": 45599.55}, {"year": 2009, "total_balance": 207288505.05, "count": 4409, "avg_balance": 47014.86}, {"year": 2010, "total_balance": 203075582.11, "count": 4394, "avg_balance": 46216.56}, {"year": 2011, "total_balance": 198194419.98, "count": 4326, "avg_balance": 45814.71}, {"year": 2012, "total_balance": 203892462.2, "count": 4438, "avg_balance": 45942.42}, {"year": 2013, "total_balance": 204402468.58, "count": 4469, "avg_balance": 45737.85}, {"year": 2014, "total_balance": 205328437.13, "count": 4489, "avg_balance": 45740.35}, {"year": 2015, "total_balance": 207948234.94, "count": 4530, "avg_balance": 45904.69}, {"year": 2016, "total_balance": 196574395.04, "count": 4405, "avg_balance": 44625.29}, {"year": 2017, "total_balance": 201866232.43, "count": 4457, "avg_balance": 45291.95}, {"year": 2018, "total_balance": 204579099.81, "count": 4409, "avg_balance": 46400.34}, {"year": 2019, "total_balance": 192484135.34, "count": 4376, "avg_balance": 43986.32}, {"year": 2020, "total_balance": 195757465.71, "count": 4416, "avg_balance": 44329.14}, {"year": 2021, "total_balance": 203980751.52, "count": 4471, "avg_balance": 45623.07}, {"year": 2022, "total_balance": 202458463.41, "count": 4362, "avg_balance": 46414.14}, {"year": 2023, "total_balance": 208994447.35, "count": 4497, "avg_balance": 46474.19}, {"year": 2024, "total_balance": 215725387.75, "count": 4584, "avg_balance": 47060.51}, {"year": 2025, "total_balance": 196293301.45, "count": 4356, "avg_balance": 45062.74}, {"year": 2026, "total_balance": 82621507.66, "count": 1808, "avg_balance": 45697.74}], "year_type_matrix": {"years": [2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026], "types": ["Current", "Fixed Deposit", "NRI", "Salary", "Savings"], "data": [[39850690.74, 18800356.85, 10762708.67, 31436168.54, 103704073.89], [41242991.71, 20222278.05, 11260461.02, 33234625.78, 102077955.07], [38832900.03, 17531197.15, 9781205.92, 31283698.54, 101636067.65], [40925093.08, 20349209.38, 8869266.23, 30428215.7, 103622998.63], [42980501.86, 21281522.08, 11198613.67, 28831187.65, 102996679.79], [39856119.94, 19624328.05, 10577180.44, 30083585.51, 102934368.17], [38242221.9, 23748746.42, 11175097.56, 27959243.29, 97069110.81], [41735936.89, 21110047.22, 9029051.61, 30134988.3, 101882438.18], [42861767.76, 20138127.89, 10991372.6, 31061384.38, 99349815.95], [42646255.29, 19720050.1, 9681568.85, 29680741.5, 103599821.39], [38267531.8, 21018295.35, 10505044.34, 30726265.54, 107431097.91], [41243437.45, 19263427.93, 10107792.44, 26712399.58, 99247337.64], [40311339.6, 18558688.39, 9560101.77, 30655750.66, 102780352.01], [42142451.78, 20033436.58, 10371988.63, 29394635.91, 102636586.91], [36765065.77, 17990620.66, 10421526.73, 30952945.03, 96353977.15], [37004427.49, 21834813.15, 8307365.48, 29994107.83, 98616751.76], [42154272.22, 18773995.94, 9990836.65, 29795491.67, 103266155.04], [40178322.56, 19785817.54, 10634107.17, 29788377.44, 102071838.7], [42336471.16, 19551231.48, 10069425.84, 29776837.72, 107260481.15], [44618743.12, 20622455.95, 11179562.89, 31583340.52, 107721285.27], [39865620.18, 17651448.96, 10488668.11, 29766670.97, 98520893.23], [16050523.96, 8179765.56, 4047883.04, 11636821.49, 42706513.61]]}, "by_status": [{"status": "Active", "total_balance": 3691086512.29, "count": 80707}, {"status": "Closed", "total_balance": 218300631.85, "count": 4767}, {"status": "Dormant", "total_balance": 437930315.95, "count": 9526}], "top_branches": [{"branch_id": 43, "total_balance": 32619069.04, "count": 668, "avg_balance": 48830.94}, {"branch_id": 8, "total_balance": 32396876.95, "count": 669, "avg_balance": 48425.83}, {"branch_id": 113, "total_balance": 32300797.9, "count": 662, "avg_balance": 48792.75}, {"branch_id": 70, "total_balance": 32081996.33, "count": 655, "avg_balance": 48980.15}, {"branch_id": 12, "total_balance": 32077846.13, "count": 667, "avg_balance": 48092.72}, {"branch_id": 29, "total_balance": 32047429.89, "count": 670, "avg_balance": 47831.98}, {"branch_id": 79, "total_balance": 31978103.66, "count": 659, "avg_balance": 48525.2}, {"branch_id": 58, "total_balance": 31969232.54, "count": 700, "avg_balance": 45670.33}, {"branch_id": 150, "total_balance": 31889032.84, "count": 675, "avg_balance": 47243.01}, {"branch_id": 92, "total_balance": 31870099.08, "count": 645, "avg_balance": 49411.01}, {"branch_id": 132, "total_balance": 31837894.48, "count": 700, "avg_balance": 45482.71}, {"branch_id": 126, "total_balance": 31834204.08, "count": 649, "avg_balance": 49051.16}, {"branch_id": 103, "total_balance": 31815632.48, "count": 663, "avg_balance": 47987.38}, {"branch_id": 100, "total_balance": 31681188.63, "count": 659, "avg_balance": 48074.64}, {"branch_id": 141, "total_balance": 31645123.39, "count": 657, "avg_balance": 48166.09}], "top_dates": [{"date": "2009-09-24", "total_balance": 1793154.16, "count": 23}, {"date": "2006-10-19", "total_balance": 1612394.88, "count": 20}, {"date": "2009-12-08", "total_balance": 1527311.21, "count": 17}, {"date": "2022-12-06", "total_balance": 1491270.71, "count": 19}, {"date": "2009-01-06", "total_balance": 1484661.85, "count": 17}, {"date": "2012-09-06", "total_balance": 1471858.92, "count": 21}, {"date": "2026-05-24", "total_balance": 1466269.32, "count": 17}, {"date": "2015-10-08", "total_balance": 1457993.19, "count": 17}, {"date": "2018-11-29", "total_balance": 1453292.75, "count": 18}, {"date": "2013-07-18", "total_balance": 1431906.41, "count": 26}, {"date": "2005-03-24", "total_balance": 1417653.57, "count": 22}, {"date": "2009-01-25", "total_balance": 1405386.92, "count": 23}, {"date": "2005-05-20", "total_balance": 1403591.67, "count": 17}, {"date": "2006-07-15", "total_balance": 1397518.62, "count": 22}, {"date": "2015-08-10", "total_balance": 1370970.65, "count": 22}], "top_date_detail": {"2009-09-24": {"Current": 881669.1, "Savings": 492458.02, "NRI": 188515.46, "Fixed Deposit": 133379.85, "Salary": 97131.73}, "2006-10-19": {"Savings": 848783.32, "Fixed Deposit": 421648.45, "Current": 341963.11}, "2009-12-08": {"Fixed Deposit": 411596.96, "Salary": 363306.05, "Current": 352891.7, "NRI": 272526.07, "Savings": 126990.43}, "2022-12-06": {"Savings": 962675.21, "Current": 286457.78, "Salary": 122616.57, "Fixed Deposit": 119521.15}, "2009-01-06": {"Savings": 1146290.01, "Salary": 122207.79, "NRI": 96289.58, "Current": 65369.01, "Fixed Deposit": 54505.46}}, "by_month": [{"month": 1, "total_balance": 381354955.17, "count": 8283, "avg_balance": 46040.68}, {"month": 2, "total_balance": 342661994.23, "count": 7489, "avg_balance": 45755.37}, {"month": 3, "total_balance": 382895917.3, "count": 8305, "avg_balance": 46104.26}, {"month": 4, "total_balance": 365680474.01, "count": 8117, "avg_balance": 45051.19}, {"month": 5, "total_balance": 380160789.97, "count": 8202, "avg_balance": 46349.77}, {"month": 6, "total_balance": 345228081.1, "count": 7626, "avg_balance": 45269.88}, {"month": 7, "total_balance": 366168822.58, "count": 7982, "avg_balance": 45874.32}, {"month": 8, "total_balance": 354460771.94, "count": 7968, "avg_balance": 44485.54}, {"month": 9, "total_balance": 344098453.58, "count": 7625, "avg_balance": 45127.67}, {"month": 10, "total_balance": 365428712.63, "count": 7964, "avg_balance": 45885.07}, {"month": 11, "total_balance": 348254172.95, "count": 7516, "avg_balance": 46335.04}, {"month": 12, "total_balance": 370924314.63, "count": 7923, "avg_balance": 46816.14}], "balance_distribution": [{"bucket": "<10K", "total_balance": 91516082.59, "count": 17975}, {"bucket": "10K-25K", "total_balance": 373702555.13, "count": 21800}, {"bucket": "25K-50K", "total_balance": 851655506.04, "count": 23461}, {"bucket": "50K-100K", "total_balance": 1490256138.3, "count": 21132}, {"bucket": "100K-150K", "total_balance": 863634057.54, "count": 7175}, {"bucket": "150K-200K", "total_balance": 393618117.49, "count": 2307}, {"bucket": "200K+", "total_balance": 282935003.0, "count": 1150}], "branch_type_matrix": {"branches": [43, 8, 113, 70, 12, 29, 79, 58, 150, 92, 132, 126, 103, 100, 141, 104, 147, 15, 46, 50], "types": ["Current", "Fixed Deposit", "NRI", "Salary", "Savings"], "data": [[7371380.28, 3333676.92, 1209239.03, 5571648.6, 15133124.21], [6421417.14, 3550392.07, 1472958.64, 4338374.85, 16613734.25], [5821499.58, 4287366.0, 2238634.83, 3903152.74, 16050144.75], [6507412.12, 3942344.42, 1358975.42, 4767723.45, 15505540.92], [6321710.1, 3932565.31, 1432362.11, 5957663.97, 14433544.64], [5727138.14, 3662228.12, 1652604.51, 4705290.47, 16300168.65], [7524707.89, 3365766.64, 1034554.86, 4245248.53, 15807825.74], [5950670.83, 3888721.67, 1634121.88, 4711368.33, 15784349.83], [6783103.34, 2548677.45, 1835802.95, 5406741.87, 15314707.23], [7019844.37, 3876700.14, 1439609.76, 4842754.43, 14691190.38], [6529302.61, 2875428.67, 934802.61, 5120374.7, 16377985.89], [5545851.56, 2652344.74, 1370842.95, 5411026.92, 16854137.91], [6172408.98, 3756233.09, 1646764.66, 4223674.46, 16016551.29], [6453606.03, 2718510.63, 1336824.24, 4714566.3, 16457681.43], [5534793.61, 3021027.54, 1784258.38, 5145381.64, 16159662.22], [6264052.78, 2576240.61, 1403425.82, 4692592.79, 16555335.71], [7025756.38, 3094809.89, 1867622.98, 3634049.71, 15815986.18], [6714396.95, 2466910.07, 2056863.23, 3698812.08, 16498251.84], [6868233.77, 3774420.6, 1673074.72, 4174467.19, 14836560.15], [5189825.85, 3662700.14, 1659553.52, 4442296.57, 16077376.86]]}, "distribution_type_matrix": {"buckets": ["<10K", "10K-25K", "25K-50K", "50K-100K", "100K-150K", "150K-200K", "200K+"], "types": ["Current", "Fixed Deposit", "NRI", "Salary", "Savings"], "data": [[18149990.58, 9753492.95, 4504692.72, 13764155.34, 45343751.0], [75598428.9, 37039178.01, 18180302.35, 57623265.66, 185261380.21], [172449734.31, 82200666.69, 41274624.94, 127549706.45, 428180773.65], [296467252.33, 144281609.55, 74570597.18, 226786912.03, 748149767.21], [171055809.11, 80448769.35, 47959595.29, 122014507.06, 442155376.73], [76714946.15, 42991879.46, 19809018.08, 55706209.4, 198396064.4], [59676524.91, 29074264.67, 12711999.1, 41472727.61, 139999486.71]]}};
+
+const TYPE_COLORS = {
+  'Savings':'#4FA89B', 'Current':'#C99A3D', 'Salary':'#8C6FB0',
+  'Fixed Deposit':'#C1653B', 'NRI':'#6E93C4'
+};
+const STATUS_COLORS = { 'Active':'#4FA89B', 'Dormant':'#C99A3D', 'Closed':'#C1653B' };
+
+function fmtMoney(v, compact=true){
+  if(v===null||v===undefined) return '—';
+  if(compact){
+    const abs = Math.abs(v);
+    if(abs>=1e9) return '₹'+(v/1e9).toFixed(2)+'B';
+    if(abs>=1e7) return '₹'+(v/1e7).toFixed(2)+'Cr';
+    if(abs>=1e5) return '₹'+(v/1e5).toFixed(2)+'L';
+    if(abs>=1e3) return '₹'+(v/1e3).toFixed(1)+'K';
+    return '₹'+v.toFixed(0);
+  }
+  return '₹'+v.toLocaleString('en-IN',{maximumFractionDigits:0});
+}
+function fmtDate(d){
+  const dt = new Date(d+'T00:00:00');
+  return dt.toLocaleDateString('en-GB',{day:'2-digit', month:'short', year:'numeric'});
+}
+const tooltip = document.getElementById('tooltip');
+function showTip(html, evt){
+  tooltip.innerHTML = html;
+  tooltip.style.display='block';
+  tooltip.style.left = (evt.clientX+16)+'px';
+  tooltip.style.top = (evt.clientY+12)+'px';
+}
+function hideTip(){ tooltip.style.display='none'; }
+
+let currentType = 'All';
+
+/* ---------- KPI STRIP ---------- */
+function renderKPI(){
+  const k = DATA.kpi;
+  document.getElementById('m-records').textContent = k.total_accounts.toLocaleString();
+  document.getElementById('m-span').textContent = k.date_min + ' → ' + k.date_max;
+  document.getElementById('m-branches').textContent = k.num_branches;
+
+  let totalBal, count, avgBal, activePct;
+  if(currentType==='All'){
+    totalBal = k.total_balance; count = k.total_accounts; avgBal = k.avg_balance; activePct = k.active_pct;
+  } else {
+    const row = DATA.by_account_type.find(r=>r.account_type===currentType);
+    totalBal = row.total_balance; count = row.count; avgBal = row.avg_balance;
+    const srow = DATA.type_status_matrix;
+    const ti = srow.types.indexOf(currentType);
+    const ai = srow.statuses.indexOf('Active');
+    activePct = (srow.data[ti][ai]/totalBal*100);
+  }
+  const items = [
+    ['Total balance', fmtMoney(totalBal), currentType==='All' ? 'across '+k.num_branches+' branches' : currentType+' book'],
+    ['Accounts', count.toLocaleString(), 'open accounts'],
+    ['Avg. balance / account', fmtMoney(avgBal,false), 'per account'],
+    ['Active balance share', activePct.toFixed(1)+'%', 'by balance, not count'],
+    ['Date range', '2005–2026', '21 years of vintage']
+  ];
+  document.getElementById('kpiStrip').innerHTML = items.map(([l,v,s])=>
+    `<div class="kpi"><div class="k-label">${l}</div><div class="k-val">${v}</div><div class="k-sub">${s}</div></div>`
+  ).join('');
+}
+
+/* ---------- SECTION 1: peak date ---------- */
+function renderAnswer(){
+  const top = DATA.top_dates;
+  const peak = top[0];
+  document.getElementById('stampDate').textContent = fmtDate(peak.date);
+  document.getElementById('stampAmt').textContent = fmtMoney(peak.total_balance);
+  document.getElementById('stampHeadline').innerHTML =
+    `<b>${fmtDate(peak.date)}</b> booked the single highest total balance of any date in the register — <b>${fmtMoney(peak.total_balance)}</b> across <b>${peak.count}</b> accounts opened that day, roughly ${(peak.total_balance/DATA.kpi.total_balance*100).toFixed(2)}% of the entire book's balance landing on one date.`;
+
+  const detail = DATA.top_date_detail[peak.date];
+  const tagsHtml = Object.entries(detail).sort((a,b)=>b[1]-a[1]).map(([t,v])=>
+    `<span class="tag">${t}: <b>${fmtMoney(v)}</b></span>`
+  ).join('');
+  document.getElementById('stampTags').innerHTML = tagsHtml;
+
+  // table
+  let rows = top.slice(0,12).map((r,i)=>
+    `<tr><td class="rank">${String(i+1).padStart(2,'0')}</td><td>${fmtDate(r.date)}</td><td class="num">${r.count}</td><td class="num">${fmtMoney(r.total_balance)}</td></tr>`
+  ).join('');
+  document.getElementById('topDatesTable').innerHTML =
+    `<thead><tr><th>#</th><th>Date</th><th style="text-align:right">Accounts</th><th style="text-align:right">Total balance</th></tr></thead><tbody>${rows}</tbody>`;
+
+  // donut of peak date composition
+  renderDonut('peakDonut', detail);
+}
+
+function renderDonut(elId, dataObj){
+  const entries = Object.entries(dataObj).sort((a,b)=>b[1]-a[1]);
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  const cx=90, cy=90, r=64, rInner=38;
+  let angle = -Math.PI/2;
+  let paths = '';
+  let legend = '';
+  entries.forEach(([type,val])=>{
+    const frac = val/total;
+    const a0 = angle;
+    const a1 = angle + frac*Math.PI*2;
+    angle = a1;
+    const x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0);
+    const x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+    const xi0=cx+rInner*Math.cos(a1), yi0=cy+rInner*Math.sin(a1);
+    const xi1=cx+rInner*Math.cos(a0), yi1=cy+rInner*Math.sin(a0);
+    const large = frac>0.5 ? 1:0;
+    const col = TYPE_COLORS[type] || '#999';
+    paths += `<path d="M${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} L${xi0},${yi0} A${rInner},${rInner} 0 ${large} 0 ${xi1},${yi1} Z" fill="${col}" data-t="${type}" data-v="${val}" style="cursor:pointer"/>`;
+    legend += `<div class="li"><span class="sw" style="background:${col}"></span>${type} — ${(frac*100).toFixed(1)}%</div>`;
+  });
+  const svg = `<svg width="180" height="180" viewBox="0 0 180 180">${paths}
+    <text x="90" y="86" text-anchor="middle" font-size="10" fill="#8FA8C2">TOTAL</text>
+    <text x="90" y="100" text-anchor="middle" font-size="12" fill="#EDE7D8" font-weight="600">${fmtMoney(total)}</text>
+  </svg>`;
+  document.getElementById(elId).innerHTML = `<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">${svg}<div>${legend}</div></div>`;
+
+  document.querySelectorAll(`#${elId} path`).forEach(p=>{
+    p.addEventListener('mousemove', e=>showTip(`<b>${p.dataset.t}</b><br>${fmtMoney(+p.dataset.v,false)}`, e));
+    p.addEventListener('mouseleave', hideTip);
+  });
+}
+
+/* ---------- SECTION 2: growth stacked area/bar by year x type ---------- */
+function renderGrowth(){
+  const m = DATA.year_type_matrix;
+  const years = m.years;
+  const types = m.types;
+  const W=1150, H=300, padL=54, padB=30, padT=10, padR=10;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+
+  let filteredTypes = currentType==='All' ? types : [currentType];
+
+  // compute stacked totals per year for filtered types
+  const totals = years.map((y,yi)=>{
+    return filteredTypes.reduce((s,t)=>{
+      const ti = types.indexOf(t);
+      return s + m.data[yi][ti];
+    },0);
+  });
+  const maxTotal = Math.max(...totals)*1.1;
+  const barW = plotW/years.length*0.62;
+  const gap = plotW/years.length;
+
+  let bars='';
+  years.forEach((y,yi)=>{
+    let yOffset = 0;
+    const x = padL + yi*gap + (gap-barW)/2;
+    filteredTypes.forEach(t=>{
+      const ti = types.indexOf(t);
+      const val = m.data[yi][ti];
+      const h = (val/maxTotal)*plotH;
+      const yPos = H-padB-yOffset-h;
+      bars += `<rect x="${x.toFixed(1)}" y="${yPos.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${TYPE_COLORS[t]}" data-y="${y}" data-t="${t}" data-v="${val}" style="cursor:pointer"/>`;
+      yOffset += h;
+    });
+  });
+
+  // y-axis gridlines
+  let grid='';
+  const steps=4;
+  for(let i=0;i<=steps;i++){
+    const yy = padT + plotH - (plotH/steps)*i;
+    const val = (maxTotal/steps)*i;
+    grid += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W-padR}" y2="${yy.toFixed(1)}" class="axis-line"/>`;
+    grid += `<text x="${padL-8}" y="${(yy+4).toFixed(1)}" text-anchor="end" font-size="10.5">${fmtMoney(val)}</text>`;
+  }
+  // x labels (every other year to avoid crowding)
+  let xlabels='';
+  years.forEach((y,yi)=>{
+    if(yi%2===0 || years.length<14){
+      const x = padL + yi*gap + gap/2;
+      xlabels += `<text x="${x.toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="10.5">${y}</text>`;
+    }
+  });
+
+  document.getElementById('growthChart').innerHTML =
+    `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${grid}${bars}${xlabels}</svg>`;
+
+  document.getElementById('growthLegend').innerHTML = filteredTypes.map(t=>
+    `<div class="li"><span class="sw" style="background:${TYPE_COLORS[t]}"></span>${t}</div>`
+  ).join('') + `<div class="li" style="margin-left:auto;color:var(--muted)">Stacked by account-open year</div>`;
+
+  document.querySelectorAll('#growthChart rect').forEach(r=>{
+    r.addEventListener('mousemove', e=>showTip(`<b>${r.dataset.y}</b> · ${r.dataset.t}<br>${fmtMoney(+r.dataset.v,false)}`, e));
+    r.addEventListener('mouseleave', hideTip);
+  });
+}
+
+/* ---------- SECTION 3: mix bars + table ---------- */
+function renderMix(){
+  const rows = [...DATA.by_account_type].sort((a,b)=>b.total_balance-a.total_balance);
+  const max = Math.max(...rows.map(r=>r.total_balance));
+  let html = '';
+  rows.forEach(r=>{
+    const w = (r.total_balance/max*100).toFixed(1);
+    const dim = currentType!=='All' && currentType!==r.account_type;
+    html += `<div style="margin-bottom:16px;opacity:${dim?0.35:1}">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;">
+        <span style="font-family:var(--mono)">${r.account_type}</span>
+        <span style="font-family:var(--mono);color:var(--gold-soft)">${fmtMoney(r.total_balance)} · ${r.share_pct.toFixed(1)}%</span>
+      </div>
+      <div style="background:rgba(255,255,255,.05);border-radius:2px;height:14px;">
+        <div style="background:${TYPE_COLORS[r.account_type]};width:${w}%;height:100%;border-radius:2px;"></div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('mixBars').innerHTML = html;
+
+  let trows = rows.map(r=>
+    `<tr><td>${r.account_type}</td><td class="num">${r.count.toLocaleString()}</td><td class="num">${fmtMoney(r.avg_balance,false)}</td><td class="num">${r.share_pct.toFixed(1)}%</td></tr>`
+  ).join('');
+  document.getElementById('mixTable').innerHTML =
+    `<thead><tr><th>Type</th><th style="text-align:right">Accounts</th><th style="text-align:right">Avg balance</th><th style="text-align:right">Share</th></tr></thead><tbody>${trows}</tbody>`;
+}
+
+/* ---------- SECTION 4: status ---------- */
+function renderStatus(){
+  let rows = DATA.by_status;
+  let totalBal = DATA.kpi.total_balance;
+  if(currentType!=='All'){
+    const m = DATA.type_status_matrix;
+    const ti = m.types.indexOf(currentType);
+    rows = m.statuses.map((s,si)=>({status:s, total_balance:m.data[ti][si]}));
+    totalBal = rows.reduce((s,r)=>s+r.total_balance,0);
+  }
+  const max = Math.max(...rows.map(r=>r.total_balance));
+  let html='';
+  rows.forEach(r=>{
+    const w = (r.total_balance/max*100).toFixed(1);
+    const pct = (r.total_balance/totalBal*100).toFixed(1);
+    html += `<div style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;">
+        <span style="font-family:var(--mono)">${r.status}</span>
+        <span style="font-family:var(--mono);color:var(--gold-soft)">${fmtMoney(r.total_balance)} · ${pct}%</span>
+      </div>
+      <div style="background:rgba(255,255,255,.05);border-radius:2px;height:14px;">
+        <div style="background:${STATUS_COLORS[r.status]};width:${w}%;height:100%;border-radius:2px;"></div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('statusBars').innerHTML = html;
+
+  // stacked by type
+  const m = DATA.type_status_matrix;
+  const types = currentType==='All' ? m.types : [currentType];
+  const W=520,H=Math.max(60,types.length*46+20), padL=110, padR=70;
+  const plotW = W-padL-padR;
+  const rowH = 46;
+  let bars='';
+  types.forEach((t,i)=>{
+    const ti = m.types.indexOf(t);
+    const rowTotal = m.data[ti].reduce((a,b)=>a+b,0);
+    let xoff=0;
+    const y = i*rowH + 8;
+    bars += `<text x="${padL-10}" y="${y+18}" text-anchor="end" font-size="11.5" fill="#EDE7D8">${t}</text>`;
+    m.statuses.forEach((s,si)=>{
+      const val = m.data[ti][si];
+      const w = (val/rowTotal)*plotW;
+      bars += `<rect x="${(padL+xoff).toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="26" fill="${STATUS_COLORS[s]}" data-t="${t}" data-s="${s}" data-v="${val}" style="cursor:pointer"/>`;
+      xoff += w;
+    });
+  });
+  document.getElementById('statusStack').innerHTML =
+    `<div class="legend">${m.statuses.map(s=>`<div class="li"><span class="sw" style="background:${STATUS_COLORS[s]}"></span>${s}</div>`).join('')}</div>
+    <svg width="100%" viewBox="0 0 ${W} ${types.length*rowH+10}" preserveAspectRatio="xMidYMid meet">${bars}</svg>`;
+
+  document.querySelectorAll('#statusStack rect').forEach(r=>{
+    r.addEventListener('mousemove', e=>showTip(`<b>${r.dataset.t}</b> · ${r.dataset.s}<br>${fmtMoney(+r.dataset.v,false)}`, e));
+    r.addEventListener('mouseleave', hideTip);
+  });
+}
+
+/* ---------- SECTION 5: branch leaderboard ---------- */
+function renderBranch(){
+  const m = DATA.branch_type_matrix;
+  let ranked;
+  if(currentType==='All'){
+    ranked = m.branches.map((b,bi)=>({branch:b, val: m.data[bi].reduce((a,c)=>a+c,0)}));
+  } else {
+    const ti = m.types.indexOf(currentType);
+    ranked = m.branches.map((b,bi)=>({branch:b, val: m.data[bi][ti]}));
+  }
+  ranked.sort((a,b)=>b.val-a.val);
+  ranked = ranked.slice(0,20);
+  const max = Math.max(...ranked.map(r=>r.val), 1);
+  const rowH=24, W=1150, padL=70, padR=90;
+  const plotW = W-padL-padR;
+  let bars='';
+  ranked.forEach((r,i)=>{
+    const w = (r.val/max)*plotW;
+    const y = i*rowH+4;
+    bars += `<text x="${padL-10}" y="${y+15}" text-anchor="end" font-size="11" fill="#8FA8C2">Br. ${r.branch}</text>`;
+    bars += `<rect x="${padL}" y="${y}" width="${Math.max(w,1).toFixed(1)}" height="16" fill="${currentType==='All'?'#C99A3D':TYPE_COLORS[currentType]}" data-b="${r.branch}" data-v="${r.val}" style="cursor:pointer"/>`;
+    bars += `<text x="${padL+w+8}" y="${y+13}" font-size="11" fill="#EDE7D8">${fmtMoney(r.val)}</text>`;
+  });
+  document.getElementById('branchChart').innerHTML =
+    `<svg width="100%" viewBox="0 0 ${W} ${ranked.length*rowH+10}" preserveAspectRatio="xMidYMid meet">${bars}</svg>`;
+
+  document.querySelectorAll('#branchChart rect').forEach(r=>{
+    r.addEventListener('mousemove', e=>showTip(`<b>Branch ${r.dataset.b}</b><br>${fmtMoney(+r.dataset.v,false)}`, e));
+    r.addEventListener('mouseleave', hideTip);
+  });
+}
+
+/* ---------- SECTION 6: distribution ---------- */
+function renderDist(){
+  const m = DATA.distribution_type_matrix;
+  const buckets = m.buckets;
+  let vals;
+  if(currentType==='All'){
+    vals = buckets.map((b,bi)=> m.data[bi].reduce((a,c)=>a+c,0));
+  } else {
+    const ti = m.types.indexOf(currentType);
+    vals = buckets.map((b,bi)=> m.data[bi][ti]);
+  }
+  const max = Math.max(...vals)*1.15;
+  const W=1150,H=260,padL=60,padB=30,padT=10,padR=10;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const gap = plotW/buckets.length;
+  const barW = gap*0.55;
+  let bars='', xlabels='', grid='';
+  const steps=4;
+  for(let i=0;i<=steps;i++){
+    const yy = padT+plotH-(plotH/steps)*i;
+    const val = (max/steps)*i;
+    grid += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W-padR}" y2="${yy.toFixed(1)}" class="axis-line"/>`;
+    grid += `<text x="${padL-8}" y="${(yy+4).toFixed(1)}" text-anchor="end" font-size="10.5">${fmtMoney(val)}</text>`;
+  }
+  buckets.forEach((b,bi)=>{
+    const val = vals[bi];
+    const h = (val/max)*plotH;
+    const x = padL + bi*gap + (gap-barW)/2;
+    const y = H-padB-h;
+    bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${currentType==='All'?'#4FA89B':TYPE_COLORS[currentType]}" data-b="${b}" data-v="${val}" style="cursor:pointer"/>`;
+    xlabels += `<text x="${(x+barW/2).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="10.5">${b}</text>`;
+  });
+  document.getElementById('distChart').innerHTML =
+    `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${grid}${bars}${xlabels}</svg>`;
+
+  document.querySelectorAll('#distChart rect').forEach(r=>{
+    r.addEventListener('mousemove', e=>showTip(`<b>${r.dataset.b}</b><br>${fmtMoney(+r.dataset.v,false)}`, e));
+    r.addEventListener('mouseleave', hideTip);
+  });
+}
+
+function renderAll(){
+  renderKPI();
+  renderGrowth();
+  renderMix();
+  renderStatus();
+  renderBranch();
+  renderDist();
+}
+
+document.querySelectorAll('.pill').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentType = btn.dataset.type;
+    renderAll();
+  });
+});
+
+renderAll();
+renderAnswer();
+</script>
+</body>
+</html>
